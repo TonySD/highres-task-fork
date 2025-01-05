@@ -11,12 +11,9 @@ use zeroize::Zeroizing;
 use super::mgf::{mgf1_xor, mgf1_xor_digest};
 use crate::errors::{Error, Result};
 
-/// Maximum label size (2^64 bits) for SHA-1 and SHA-256 hash functions.
-///
-/// In theory, other hash functions (e.g. SHA-512 and SHA-3) can process longer labels,
-/// but such huge inputs are practically impossible on one machine, so we use this limit
-/// for all hash functions.
-const MAX_LABEL_LEN: u64 = 1 << 61;
+// 2**61 -1 (pow is not const yet)
+// TODO: This is the maximum for SHA-1, unclear from the RFC what the values are for other hashing functions.
+const MAX_LABEL_LEN: u64 = 2_305_843_009_213_693_951;
 
 #[inline]
 fn encrypt_internal<R: CryptoRngCore + ?Sized, MGF: FnMut(&mut [u8], &mut [u8])>(
@@ -68,7 +65,7 @@ pub(crate) fn oaep_encrypt<R: CryptoRngCore + ?Sized>(
     let h_size = digest.output_size();
 
     let label = label.unwrap_or_default();
-    if label.len() as u64 >= MAX_LABEL_LEN {
+    if label.len() as u64 > MAX_LABEL_LEN {
         return Err(Error::LabelTooLong);
     }
 
@@ -102,7 +99,7 @@ pub(crate) fn oaep_encrypt_digest<
     let h_size = <D as Digest>::output_size();
 
     let label = label.unwrap_or_default();
-    if label.len() as u64 >= MAX_LABEL_LEN {
+    if label.len() as u64 > MAX_LABEL_LEN {
         return Err(Error::LabelTooLong);
     }
 
@@ -136,7 +133,7 @@ pub(crate) fn oaep_decrypt(
     let h_size = digest.output_size();
 
     let label = label.unwrap_or_default();
-    if label.len() as u64 >= MAX_LABEL_LEN {
+    if label.len() as u64 > MAX_LABEL_LEN {
         return Err(Error::Decryption);
     }
 
@@ -176,7 +173,7 @@ pub(crate) fn oaep_decrypt_digest<D: Digest, MGD: Digest + FixedOutputReset>(
     let h_size = <D as Digest>::output_size();
 
     let label = label.unwrap_or_default();
-    if label.len() as u64 >= MAX_LABEL_LEN {
+    if label.len() as u64 > MAX_LABEL_LEN {
         return Err(Error::LabelTooLong);
     }
 
