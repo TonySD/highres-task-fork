@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        CREATE TABLE IF NOT EXISTS notes (\n                            id serial primary key,\n                            contents bytea\n                        );\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "f41eed70d6fdc9697f435f04b532c966de05c219e272621c6a1db845b57b2747"
+}
