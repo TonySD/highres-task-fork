@@ -5,17 +5,18 @@ use num_integer::Integer;
 use rand_core::CryptoRngCore;
 use rsa::{BigUint, RsaPrivateKey};
 
-mod generation;
+mod encryption;
 
 mod db {
     use std::time::Duration;
 
-    use anyhow::Result;
-    use sqlx::PgPool;
+    use anyhow::{anyhow, Result};
+    use sqlx::{prelude::FromRow, PgPool};
 
     #[derive(Debug, Clone)]
     pub struct DbPool(PgPool);
 
+    #[derive(FromRow, Clone)]
     pub struct NoteRow {
         id: i32,
         contents: Vec<u8>,
@@ -28,19 +29,42 @@ mod db {
             let pool = sqlx::postgres::PgPoolOptions::new()
                 .max_connections(5)
                 .acquire_timeout(Duration::from_secs(5))
-                .connect("postgres://postgress:password@db/postgres")
+                .connect("postgres://postgres:password@db/postgres")
                 .await?;
             let res = Self(pool);
             res.create_db().await?;
             Ok(res)
         }
 
-        pub async fn fetch_notes(&self) -> Result<Vec<NoteRow>> {
+        pub async fn fetch_notes(&self) -> Result<Vec<NoteRow>, sqlx::Error> {
             let rows = sqlx::query("SELECT * FROM notes")
                 .fetch_all(&self.0)
-                .await?;
+                .await?
+                .into_iter()
+                .map(|r| NoteRow::from_row(&r))
+                .collect::<Vec<_>>();
 
-            todo!()
+            if rows.iter().all(Result::is_ok) {
+                Ok(rows.into_iter().map(Result::unwrap).collect::<Vec<_>>())
+            } else {
+                rows.into_iter()
+                    .reduce(|acc, e| match (&acc, &e) {
+                        (Err(_), _) => acc,
+                        (Ok(_), Err(_)) => e,
+                        _ => acc,
+                    })
+                    .expect("Should always work")
+                    .map(|r| vec![r])
+            }
+        }
+
+        pub async fn get_note(&self, note_id: i32) -> Result<NoteRow> {
+            let rows = self.fetch_notes().await?;
+            let res = rows
+                .iter()
+                .find(|NoteRow { id, .. }| id == &note_id)
+                .ok_or(anyhow!("Failed to find note by id {}", note_id));
+            res.cloned()
         }
 
         /// Creates the table via the existing valid postgres connection

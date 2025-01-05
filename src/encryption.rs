@@ -2,8 +2,15 @@ use super::{
     BigUint, CryptoRngCore, Integer, IntoBigUint, ModInverse, RandBigInt, RandPrime, RsaPrivateKey,
 };
 
-pub struct MyAwesomeRsaGenerator;
-impl MyAwesomeRsaGenerator {
+#[derive(Debug, Clone, Copy)]
+pub struct AppRsa {
+    field1: AwesomeRsaGenerator,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AwesomeRsaGenerator;
+
+impl AwesomeRsaGenerator {
     pub fn new<R>(rng: &mut R, bits: usize) -> Result<RsaPrivateKey, rsa::Error>
     where
         R: CryptoRngCore + ?Sized,
@@ -18,12 +25,9 @@ impl MyAwesomeRsaGenerator {
 
         let d: BigUint;
         let e: BigUint;
-        let mut attempt = 1;
 
         // Initialize e and d
         'init_e_d: loop {
-            attempt += 1;
-            println!("Attempt {}", attempt);
             let test_d = rng.gen_biguint(bits / 4);
 
             if test_d.gcd(&lambda) == BigUint::from(1u32)
