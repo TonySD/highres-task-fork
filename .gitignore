@@ -2,3 +2,4 @@
 .direnv/flake-inputs
 .direnv
 .github
+.sqlx
