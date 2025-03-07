@@ -4,20 +4,20 @@ use actix_web::cookie::time::error::InvalidVariant;
 use anyhow::Result;
 use log::info;
 use rsa::{traits::PublicKeyParts, RsaPublicKey};
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool};
 
 use crate::server::ServerError;
 
 #[derive(Debug, Clone)]
 pub struct DbPool(PgPool);
 
-#[derive(Clone)]
+#[derive(Clone, Debug, FromRow)]
 pub struct NoteRow {
     pub id: i32,
     pub contents: Option<Vec<u8>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, FromRow)]
 pub struct KeyRow {
     id: i32,
     pub n: Option<Vec<u8>>,
@@ -41,13 +41,13 @@ impl DbPool {
     }
 
     pub async fn fetch_notes(&self) -> Result<Vec<NoteRow>, sqlx::Error> {
-        sqlx::query_as!(NoteRow, "SELECT id, contents FROM notes")
+        sqlx::query_as::<_, NoteRow>("SELECT id, contents FROM notes")
             .fetch_all(&self.0)
             .await
     }
 
     pub async fn fetch_keys(&self) -> Result<Vec<KeyRow>, sqlx::Error> {
-        sqlx::query_as!(KeyRow, "SELECT id, n, e FROM publickeys")
+        sqlx::query_as::<_, KeyRow>("SELECT id, n, e FROM publickeys")
             .fetch_all(&self.0)
             .await
     }
@@ -72,13 +72,13 @@ impl DbPool {
 
     pub async fn add_key(&self, pub_key: &RsaPublicKey) -> Result<(), ServerError> {
         info!("Adding key");
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO publickeys (n, e) VALUES ($1, $2)
         "#,
-            pub_key.n().to_bytes_le(),
-            pub_key.e().to_bytes_le()
         )
+        .bind(pub_key.n().to_bytes_le())
+        .bind(pub_key.e().to_bytes_le())
         .execute(&self.0)
         .await?;
         info!("Key added");
@@ -88,7 +88,8 @@ impl DbPool {
 
     pub async fn add_note_enc(&self, msg: Vec<u8>) -> Result<(), ServerError> {
         info!("Adding encrypted note");
-        sqlx::query!("INSERT INTO notes (contents) VALUES ($1)", msg)
+        sqlx::query("INSERT INTO notes (contents) VALUES ($1)")
+            .bind(msg)
             .execute(&self.0)
             .await?;
         info!("Note added");
@@ -97,7 +98,7 @@ impl DbPool {
 
     async fn create_notes_db(&self) -> Result<()> {
         info!("Creating notes db");
-        sqlx::query!(
+        sqlx::query(
             r#"
                         CREATE TABLE IF NOT EXISTS notes (
                             id serial primary key,
@@ -113,7 +114,7 @@ impl DbPool {
 
     async fn create_publickeys_db(&self) -> Result<()> {
         info!("Creating publickeys db");
-        sqlx::query!(
+        sqlx::query(
             r#"
                     CREATE TABLE IF NOT EXISTS publickeys (
                         id serial primary key,
