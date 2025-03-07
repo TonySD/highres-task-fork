@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+    volumes:
+      - my-db-volume:/var/lib/postgresql/data
+    networks:
+      - server-side
+    ports:
+      - 1181:5432
+
+  backend:
+    environment:
+      DATABASE_URL: postgres://postgres:password@db/postgres
+    build:
+      context: .
+    depends_on:
+      - db
+    networks:
+      - server-side
+    ports:
+      - 1180:8080
+
+
+volumes:
+  my-db-volume:
+
+networks:
+  server-side:
